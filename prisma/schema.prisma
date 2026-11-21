@@ -1,0 +1,236 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  RESTAURANT
+  NGO
+  VOLUNTEER
+  ADMIN
+}
+
+enum OrgType {
+  RESTAURANT
+  NGO
+  COMMUNITY_KITCHEN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum QuantityUnit {
+  KG
+  SERVINGS
+}
+
+enum StorageType {
+  AMBIENT
+  CHILLED
+  FROZEN
+}
+
+enum DonationStatus {
+  POSTED
+  CLAIMED
+  COLLECTED
+  DELIVERED
+  EXPIRED
+  CANCELLED
+}
+
+enum ClaimStatus {
+  ACTIVE
+  RELEASED
+  COMPLETED
+}
+
+enum TaskType {
+  PICKUP
+  DELIVERY
+}
+
+enum TaskStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  displayName  String
+  phone        String? // private: never returned in public APIs
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  organisation  Organisation?
+  volunteer     Volunteer?
+  notifications Notification[]
+  aiRequests    AiRequest[]
+}
+
+model Organisation {
+  id                  String             @id @default(cuid())
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type                OrgType
+  name                String
+  publicLocality      String
+  latitude            Float
+  longitude           Float
+  privateAddress      String?
+  acceptedCategories  String[]
+  capacityKgPerDay    Int?
+  hasColdStorage      Boolean            @default(false)
+  dietaryRequirements String?
+  verificationStatus  VerificationStatus @default(PENDING)
+
+  donations   Donation[]
+  claims      Claim[]
+  matchScores MatchScore[]
+}
+
+model Volunteer {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceLocalities String[]
+  vehicleType       String?
+  isActive          Boolean  @default(true)
+
+  tasks Task[]
+}
+
+model Donation {
+  id                   String         @id @default(cuid())
+  restaurantOrgId      String
+  restaurantOrg        Organisation   @relation(fields: [restaurantOrgId], references: [id])
+  title                String
+  description          String
+  foodCategory         String
+  isVegetarian         Boolean
+  quantityValue        Float
+  quantityUnit         QuantityUnit
+  estimatedServings    Int?
+  preparedAt           DateTime
+  storageType          StorageType
+  storageInstructions  String
+  allergens            String[]
+  handlingInstructions String
+  consumeBy            DateTime
+  pickupWindowStart    DateTime
+  pickupDeadline       DateTime
+  status               DonationStatus @default(POSTED)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  statusHistory DonationStatusHistory[]
+  claim         Claim?
+  tasks         Task[]
+  matchScores   MatchScore[]
+  impactEvents  ImpactEvent[]
+
+  @@index([status])
+  @@index([pickupDeadline])
+}
+
+model DonationStatusHistory {
+  id          String          @id @default(cuid())
+  donationId  String
+  donation    Donation        @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  fromStatus  DonationStatus?
+  toStatus    DonationStatus
+  actorUserId String?
+  note        String?
+  createdAt   DateTime        @default(now())
+}
+
+model Claim {
+  id              String       @id @default(cuid())
+  donationId      String       @unique
+  donation        Donation     @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  ngoOrgId        String
+  ngoOrg          Organisation @relation(fields: [ngoOrgId], references: [id])
+  quantityClaimed Float
+  status          ClaimStatus  @default(ACTIVE)
+  claimedAt       DateTime     @default(now())
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  donationId  String
+  donation    Donation   @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  type        TaskType
+  volunteerId String?
+  volunteer   Volunteer? @relation(fields: [volunteerId], references: [id], onDelete: SetNull)
+  status      TaskStatus @default(OPEN)
+  assignedAt  DateTime?
+  collectedAt DateTime?
+  deliveredAt DateTime?
+}
+
+model MatchScore {
+  id              String       @id @default(cuid())
+  donationId      String
+  donation        Donation     @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  ngoOrgId        String
+  ngoOrg          Organisation @relation(fields: [ngoOrgId], references: [id], onDelete: Cascade)
+  score           Float
+  factorBreakdown Json
+  computedAt      DateTime     @default(now())
+
+  @@unique([donationId, ngoOrgId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  payload   Json
+  channel   String    @default("IN_APP")
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model ImpactAssumption {
+  key        String @id
+  value      Float
+  unit       String
+  sourceNote String
+  version    Int
+}
+
+model ImpactEvent {
+  id                String   @id @default(cuid())
+  donationId        String
+  donation          Donation @relation(fields: [donationId], references: [id], onDelete: Cascade)
+  deliveredKg       Float
+  mealsEstimated    Float
+  co2eAvoidedKg     Float
+  assumptionVersion Int
+  createdAt         DateTime @default(now())
+}
+
+model AiRequest {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  inputText    String
+  parsedOutput Json
+  provider     String
+  createdAt    DateTime @default(now())
+}
