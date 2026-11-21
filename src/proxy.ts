@@ -14,7 +14,7 @@ const PROTECTED_ROUTES: { prefix: string; role: RoleName }[] = [
 
 // Public (not matched, so never intercepted): /, /impact, /login, /signup, /api/auth.
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // /dashboard is not a real page. Send the signed-in user to their role's home.
@@ -76,7 +76,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard",
     "/donations/:path*",
     "/discover/:path*",
     "/claims/:path*",

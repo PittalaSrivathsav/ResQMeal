@@ -33,6 +33,13 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       select: { id: true, name: true, publicLocality: true },
     });
   }
+  if (!org) {
+    org = {
+      id: "default-ngo",
+      name: session.user.name || "Hope Foundation",
+      publicLocality: "India Network",
+    };
+  }
 
   // 2. Fetch available posted donations and this NGO's active claims concurrently
   const [donations, myClaims] = await Promise.all([

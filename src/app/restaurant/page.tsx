@@ -44,7 +44,13 @@ export default async function RestaurantDashboardPage() {
       select: { id: true, name: true, publicLocality: true },
     });
   }
-  if (!org) notFound();
+  if (!org) {
+    org = {
+      id: "default-restaurant",
+      name: session.user.name || "Restaurant Partner",
+      publicLocality: "India Network",
+    };
+  }
 
   // 2. Fast single query to fetch all restaurant donations
   const scope = { restaurantOrgId: org.id };
